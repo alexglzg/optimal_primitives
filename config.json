@@ -3,5 +3,10 @@
     "turning_radius": 0.5,
     "grid_resolution": 0.05,
     "stopping_threshold": 5,
-    "num_of_headings": 16
+    "num_of_headings": 16,
+    "max_vel": 1.0,
+    "min_vel": 0.0,
+    "max_ang_vel": 1.0,
+    "max_lin_acc": 0.1,
+    "max_ang_acc": 0.1
 }

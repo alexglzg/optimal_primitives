@@ -13,6 +13,13 @@ from trajectory_generator import TrajectoryGenerator
 
 class OptimalGenerator:
 
+    class MotionModel(Enum):
+        """An Enum used for determining the motion model to use."""
+
+        ACKERMANN = 1
+        DIFF = 2
+        OMNI = 3
+
     class Flip(Enum):
         """An Enum used for determining how a trajectory should be flipped."""
 
@@ -28,6 +35,8 @@ class OptimalGenerator:
         self.num_of_headings = config['num_of_headings']
         self.headings = \
             self._get_heading_discretization(config['num_of_headings'])
+        
+        self.motion_model = self.MotionModel[config['motion_model'].upper()]
         
         self.DISTANCE_THRESHOLD = 0.5 * self.grid_resolution
         self.ROTATION_THRESHOLD = 0.5 * (2 * np.pi / self.num_of_headings)
@@ -269,7 +278,6 @@ class OptimalGenerator:
                         # when checking if trajectory overlaps another already
                         # seen trajectory
 
-                        #TODO: template of trajectory, then get it with the OCP
 
                         trajectory = self.trajectory_generator.generate_trajectory(
                             target_point,
@@ -503,6 +511,93 @@ class OptimalGenerator:
 
         return all_trajectories
     
+    def _handle_motion_model(self, spanning_set: dict) -> dict:
+        """
+        Add the appropriate motions for the user supplied motion model.
+
+        Ackerman: No additional trajectories
+
+        Diff: In place turns to the right and left
+
+        Omni: Diff + Sliding movements to right and left
+
+        Args:
+        spanning set: dict
+            The minimal spanning set
+
+        Returns
+        -------
+        dict
+            The minimal spanning set with additional trajectories based
+            on the motion model
+
+        """
+        '''if self.motion_model == self.MotionModel.ACKERMANN:
+            return spanning_set'''
+
+        if self.motion_model == self.MotionModel.DIFF:
+            diff_spanning_set = self._add_in_place_turns(spanning_set)
+            return diff_spanning_set
+
+            '''elif self.motion_model == self.MotionModel.OMNI:
+            omni_spanning_set = self._add_in_place_turns(spanning_set)
+            omni_spanning_set = self._add_horizontal_motions(omni_spanning_set)
+            return omni_spanning_set'''
+
+        else:
+            print('No handling implemented for Motion Model: ' +
+                  f'{self.motion_model}')
+            raise NotImplementedError
+        
+    def _add_in_place_turns(self, spanning_set: dict) -> dict:
+        """
+        Add in place turns to the spanning set.
+
+        In place turns are trajectories with only a rotational component and
+        only shift a single angular heading step
+
+        Args:
+        spanning_set: dict
+            The minimal spanning set
+
+        Returns
+        -------
+        dict
+            The minimal spanning set containing additional in place turns
+            for each start angle
+
+        """
+        all_angles = sorted(spanning_set.keys())
+
+        for idx, start_angle in enumerate(all_angles):
+            prev_angle_idx = idx - 1 if idx - 1 >= 0 else len(all_angles) - 1
+            next_angle_idx = idx + 1 if idx + 1 < len(all_angles) else 0
+
+            prev_angle = all_angles[prev_angle_idx]
+            next_angle = all_angles[next_angle_idx]
+
+            left_trajectory_path, left_trajectory_length = self.trajectory_generator._create_path(0.0, 0.0, next_angle, start_angle)
+            left_trajectory_parameters = TrajectoryParameters(
+                turning_radius=0.0, end_point=np.array([0, 0]), 
+                start_angle=start_angle, end_angle=next_angle, left_turn=True,
+                total_length=0.0, straight_length=0.0
+            )
+            left_trajectory = Trajectory(left_trajectory_path, left_trajectory_parameters)
+
+
+            right_trajectory_path, right_trajectory_length = self.trajectory_generator._create_path(0.0, 0.0, next_angle, start_angle)
+            right_trajectory_parameters = TrajectoryParameters(
+                turning_radius=0.0, end_point=np.array([0, 0]), 
+                start_angle=start_angle, end_angle=prev_angle, left_turn=False,
+                total_length=0.0, straight_length=0.0
+            )
+            right_trajectory = Trajectory(right_trajectory_path, right_trajectory_parameters)
+
+            spanning_set[start_angle].append(left_trajectory)
+            spanning_set[start_angle].append(right_trajectory)
+
+        return spanning_set
+    
     def run(self):
         """
         Run the lattice generator.
@@ -516,4 +611,4 @@ class OptimalGenerator:
         """
         complete_spanning_set = self._generate_minimal_spanning_set()
 
-        return complete_spanning_set
+        return self._handle_motion_model(complete_spanning_set)

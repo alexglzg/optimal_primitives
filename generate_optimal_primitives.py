@@ -184,8 +184,8 @@ def save_visualizations(visualizations_folder: Path, minimal_set_trajectories: d
 
         angle_in_deg = np.rad2deg(start_angle)
 
-        #if start_angle < 0 or start_angle > np.pi / 2:
-        #    continue
+        if start_angle < 0 or start_angle > np.pi / 2:
+            continue
 
         for trajectory in minimal_set_trajectories[start_angle]:
             plt.plot(trajectory.path.xs, trajectory.path.ys, 'b')

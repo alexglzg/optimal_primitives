@@ -19,6 +19,11 @@ class TrajectoryGenerator:
     def __init__(self, config: dict):
         """Init TrajectoryGenerator using the user supplied config."""
         self.turning_radius = config['turning_radius']
+        self.max_vel = config['max_vel']
+        self.min_vel = config['min_vel']
+        self.max_ang_vel = config['max_ang_vel']
+        self.max_lin_acc = config['max_lin_acc']
+        self.max_ang_acc = config['max_ang_acc']
 
     def _get_arc_point(
         self, trajectory_params: TrajectoryParameters, t: float
@@ -154,7 +159,7 @@ class TrajectoryGenerator:
 
         current_X = vertcat(0.0,0.0,start_angle,0.0,0.0)
 
-        xs, ys, yaws, length = unicycle_acc.return_poses(x2, y2, end_angle, current_X)
+        xs, ys, yaws, length = unicycle_acc.return_poses(x2, y2, end_angle, current_X, self.max_vel, self.min_vel, self.max_ang_vel, self.max_lin_acc, self.max_ang_acc)
 
         xs = np.array(xs)
         ys = np.array(ys)
@@ -279,7 +284,7 @@ class TrajectoryGenerator:
         else:
             return False
         
-    def _calculate_trajectory_params(
+    def _calculate_trajectory(
         self, end_point: np.array, start_angle: float, end_angle: float
     ) -> Union[Trajectory, None]:
         """
@@ -520,7 +525,7 @@ class TrajectoryGenerator:
         #    if (start_angle < 0):
         #        start_angle += np.pi
 
-        trajectory = self._calculate_trajectory_params(
+        trajectory = self._calculate_trajectory(
             end_point, start_angle, end_angle
         )
 
