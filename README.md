@@ -8,6 +8,8 @@ The required python packages can be installed by running the following command:
 
 pip install -r requirements.txt 
 
+It has been tested with Python versions 3.8 and 3.10.
+
 ## Getting Started 
 
 Before running the main code, you can modify/edit the settings (i.e, maximum turning radius, maximum velocity, etc) in the file (config.json).  

@@ -1,6 +1,6 @@
 {
 	"version": 1.0,
-	"date_generated": "2024-03-22",
+	"date_generated": "2024-04-30",
 	"lattice_metadata": {
 		"motion_model": "diff",
 		"turning_radius": 0.5,

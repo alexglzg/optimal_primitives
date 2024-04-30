@@ -249,9 +249,11 @@ class OptimalGenerator:
         wave_front_start_pos = int(
             np.round(min_trajectory_length / self.grid_resolution)
         )
-
+        
         for start_heading in initial_headings:
             iterations_without_trajectory = 0
+
+            print(f'Generating set {initial_headings.index(start_heading)+1} of {len(initial_headings)}' )
 
             prior_end_poses = index.Index()
 

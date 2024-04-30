@@ -200,6 +200,8 @@ def save_visualizations(visualizations_folder: Path, minimal_set_trajectories: d
 
 if __name__ == '__main__':
 
+    print(f'Start Generating Primitives.')
+
     args = handle_arg_parsing()
     config = read_config(args.config)
 
