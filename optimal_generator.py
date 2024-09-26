@@ -410,13 +410,15 @@ class OptimalGenerator:
                         )
                     )
 
-                    all_trajectories[
-                        unflipped_trajectory.parameters.start_angle
-                    ].append(unflipped_trajectory)
+                    if unflipped_trajectory is not None:
+                        all_trajectories[
+                            unflipped_trajectory.parameters.start_angle
+                        ].append(unflipped_trajectory)
 
-                    all_trajectories[
-                        flipped_x_trajectory.parameters.start_angle
-                    ].append(flipped_x_trajectory)
+                    if flipped_x_trajectory is not None:
+                        all_trajectories[
+                            flipped_x_trajectory.parameters.start_angle
+                        ].append(flipped_x_trajectory)
 
                 elif abs(start_angle) == np.pi / 2 and abs(end_angle) == np.pi / 2:
                     unflipped_start_angle = np.pi / 2
@@ -444,12 +446,15 @@ class OptimalGenerator:
                         )
                     )
 
-                    all_trajectories[
-                        unflipped_trajectory.parameters.start_angle
-                    ].append(unflipped_trajectory)
-                    all_trajectories[
+                    if unflipped_trajectory is not None:
+                        all_trajectories[
+                            unflipped_trajectory.parameters.start_angle
+                        ].append(unflipped_trajectory)
+
+                    if flipped_y_trajectory is not None:
+                        all_trajectories[
                         flipped_y_trajectory.parameters.start_angle
-                    ].append(flipped_y_trajectory)
+                        ].append(flipped_y_trajectory)
 
                 else:
                     unflipped_start_angle = start_angle
@@ -498,18 +503,22 @@ class OptimalGenerator:
                         )
                     )
 
-                    all_trajectories[
-                        unflipped_trajectory.parameters.start_angle
-                    ].append(unflipped_trajectory)
-                    all_trajectories[
-                        flipped_x_trajectory.parameters.start_angle
-                    ].append(flipped_x_trajectory)
-                    all_trajectories[
-                        flipped_y_trajectory.parameters.start_angle
-                    ].append(flipped_y_trajectory)
-                    all_trajectories[
-                        flipped_xy_trajectory.parameters.start_angle
-                    ].append(flipped_xy_trajectory)
+                    if unflipped_trajectory is not None:
+                        all_trajectories[
+                            unflipped_trajectory.parameters.start_angle
+                        ].append(unflipped_trajectory)
+                    if flipped_x_trajectory is not None:
+                        all_trajectories[
+                            flipped_x_trajectory.parameters.start_angle
+                        ].append(flipped_x_trajectory)
+                    if flipped_y_trajectory is not None:
+                        all_trajectories[
+                            flipped_y_trajectory.parameters.start_angle
+                        ].append(flipped_y_trajectory)
+                    if flipped_xy_trajectory is not None:
+                        all_trajectories[
+                            flipped_xy_trajectory.parameters.start_angle
+                        ].append(flipped_xy_trajectory)
 
         return all_trajectories
     
@@ -534,17 +543,17 @@ class OptimalGenerator:
             on the motion model
 
         """
-        '''if self.motion_model == self.MotionModel.ACKERMANN:
-            return spanning_set'''
+        if self.motion_model == self.MotionModel.ACKERMANN:
+            return spanning_set
 
         if self.motion_model == self.MotionModel.DIFF:
             diff_spanning_set = self._add_in_place_turns(spanning_set)
             return diff_spanning_set
 
-            '''elif self.motion_model == self.MotionModel.OMNI:
+        elif self.motion_model == self.MotionModel.OMNI:
             omni_spanning_set = self._add_in_place_turns(spanning_set)
             omni_spanning_set = self._add_horizontal_motions(omni_spanning_set)
-            return omni_spanning_set'''
+            return omni_spanning_set
 
         else:
             print('No handling implemented for Motion Model: ' +
@@ -597,6 +606,77 @@ class OptimalGenerator:
 
             spanning_set[start_angle].append(left_trajectory)
             spanning_set[start_angle].append(right_trajectory)
+
+        return spanning_set
+    
+    def _add_horizontal_motions(self, spanning_set: dict) -> dict:
+        """
+        Add horizontal sliding motions to the spanning set.
+
+        The horizontal sliding motions are simply straight line trajectories
+        at 90 degrees to every start angle in the spanning set. The yaw of these
+        trajectories is the same as the start angle for which it is generated.
+
+        Args:
+        spanning_set: dict
+            The minimal spanning set
+
+        Returns
+        -------
+        dict
+            The minimal spanning set containing additional sliding motions
+            for each start angle
+
+        """
+        # Calculate the offset in the headings list that represents an
+        # angle change of 90 degrees
+        idx_offset = int(self.num_of_headings / 4)
+
+        for idx, angle in enumerate(self.headings):
+
+            try:
+                # Copy the straight line trajectory for the start angle that
+                # is 90 degrees to the left
+                left_angle_idx = int((idx + idx_offset) % self.num_of_headings)
+                left_angle = self.headings[left_angle_idx]
+                left_trajectories = spanning_set[left_angle]
+                left_straight_trajectory = next(
+                    t for t in left_trajectories if t.parameters.end_angle == left_angle
+                )
+                params_l = left_straight_trajectory.parameters
+                x2, y2 = params_l.end_point
+                left_trajectory_path, left_trajectory_length = self.trajectory_generator._create_path(x2, y2, left_angle, left_angle)
+                left_trajectory_parameters = TrajectoryParameters(
+                    turning_radius=self.turning_radius, end_point=params_l.end_point, 
+                    start_angle=left_angle, end_angle=left_angle, left_turn=False,
+                    total_length=left_trajectory_length, straight_length=left_trajectory_length
+                )
+                left_trajectory = Trajectory(left_trajectory_path, left_trajectory_parameters)
+                spanning_set[angle].append(left_trajectory)
+            except:
+                left_trajectory = None
+
+            try:
+                # Copy the straight line trajectory for the start angle that
+                # is 90 degrees to the right
+                right_angle_idx = int((idx - idx_offset) % self.num_of_headings)
+                right_angle = self.headings[right_angle_idx]
+                right_trajectories = spanning_set[right_angle]
+                right_straight_trajectory = next(
+                    t for t in right_trajectories if t.parameters.end_angle == right_angle
+                )
+                params_r = right_straight_trajectory.parameters
+                x2, y2 = params_r.end_point
+                right_trajectory_path, right_trajectory_length = self.trajectory_generator._create_path(x2, y2, right_angle, right_angle)
+                right_trajectory_parameters = TrajectoryParameters(
+                    turning_radius=self.turning_radius, end_point=params_r.end_point,
+                    start_angle=right_angle, end_angle=right_angle, left_turn=False,
+                    total_length=right_trajectory_length, straight_length=right_trajectory_length
+                )
+                right_trajectory = Trajectory(right_trajectory_path, right_trajectory_parameters)
+                spanning_set[angle].append(right_trajectory)
+            except:
+                right_trajectory = None
 
         return spanning_set
     

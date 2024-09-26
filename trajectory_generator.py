@@ -1,11 +1,14 @@
 import logging
 from typing import Tuple, Union
+from enum import Enum
 
 import numpy as np
 
 from trajectory import Path, Trajectory, TrajectoryParameters
 
+import bicycle_acc
 import unicycle_acc
+import omni_acc
 
 from casadi import *
 
@@ -16,6 +19,13 @@ logger = logging.getLogger(__name__)
 class TrajectoryGenerator:
     """Handles all the logic for generating trajectories."""
 
+    class MotionModel(Enum):
+        """An Enum used for determining the motion model to use."""
+
+        ACKERMANN = 1
+        DIFF = 2
+        OMNI = 3
+
     def __init__(self, config: dict):
         """Init TrajectoryGenerator using the user supplied config."""
         self.turning_radius = config['turning_radius']
@@ -24,6 +34,10 @@ class TrajectoryGenerator:
         self.max_ang_vel = config['max_ang_vel']
         self.max_lin_acc = config['max_lin_acc']
         self.max_ang_acc = config['max_ang_acc']
+        self.motion_model = self.MotionModel[config['motion_model'].upper()]
+        if self.motion_model == self.MotionModel.ACKERMANN:
+            self.wheelbase = config['wheelbase']
+            self.max_steer_ang = config['max_steer_ang']
 
     def _get_arc_point(
         self, trajectory_params: TrajectoryParameters, t: float
@@ -159,7 +173,16 @@ class TrajectoryGenerator:
 
         current_X = vertcat(0.0,0.0,start_angle,0.0,0.0)
 
-        xs, ys, yaws, length = unicycle_acc.return_poses(x2, y2, end_angle, current_X, self.max_vel, self.min_vel, self.max_ang_vel, self.max_lin_acc, self.max_ang_acc)
+        if self.motion_model == self.MotionModel.ACKERMANN:
+            print("bicycle")
+            xs, ys, yaws, length = bicycle_acc.return_poses(x2, y2, end_angle, current_X, self.max_vel, self.min_vel, self.max_ang_vel, self.max_lin_acc, self.max_ang_acc, self.wheelbase, self.max_steer_ang)
+            
+        elif self.motion_model == self.MotionModel.DIFF:
+            xs, ys, yaws, length = unicycle_acc.return_poses(x2, y2, end_angle, current_X, self.max_vel, self.min_vel, self.max_ang_vel, self.max_lin_acc, self.max_ang_acc)
+
+        elif self.motion_model == self.MotionModel.OMNI:
+            current_X = vertcat(0.0,0.0,start_angle,0.0,0.0,0.0)
+            xs, ys, yaws, length = omni_acc.return_poses(x2, y2, end_angle, current_X, self.max_vel, self.min_vel, self.max_ang_vel, self.max_lin_acc, self.max_ang_acc)        
 
         xs = np.array(xs)
         ys = np.array(ys)
@@ -341,25 +364,31 @@ class TrajectoryGenerator:
             # If they are coincident (i.e. y-intercept is same) then simply
             # return a circle with infinite radius
             if round(-m2 * x2 + y2, 5) == 0:
-                trajectory_path, trajectory_length = self._create_path(x2, y2, end_angle, start_angle)
-                trajectory_parameters = TrajectoryParameters(
-                    turning_radius=0.0, end_point=end_point, 
-                    start_angle=start_angle, end_angle=end_angle, left_turn=True,
-                    total_length=trajectory_length, straight_length=trajectory_length
-                )
-                return Trajectory(trajectory_path, trajectory_parameters)
+                try:
+                    trajectory_path, trajectory_length = self._create_path(x2, y2, end_angle, start_angle)
+                    trajectory_parameters = TrajectoryParameters(
+                        turning_radius=0.0, end_point=end_point, 
+                        start_angle=start_angle, end_angle=end_angle, left_turn=True,
+                        total_length=trajectory_length, straight_length=trajectory_length
+                    )
+                    return Trajectory(trajectory_path, trajectory_parameters)
+                except:
+                    return None
 
             # Deal with edge case of 90
             elif (
                 abs(start_angle) == np.pi / 2 and arc_end_point[0] == arc_start_point[0]
             ):
-                trajectory_path, trajectory_length = self._create_path(x2, y2, end_angle, start_angle)
-                trajectory_parameters = TrajectoryParameters(
-                    turning_radius=0.0, end_point=end_point, 
-                    start_angle=start_angle, end_angle=end_angle, left_turn=True,
-                    total_length=trajectory_length, straight_length=trajectory_length
-                )
-                return Trajectory(trajectory_path, trajectory_parameters)
+                try:
+                    trajectory_path, trajectory_length = self._create_path(x2, y2, end_angle, start_angle)
+                    trajectory_parameters = TrajectoryParameters(
+                        turning_radius=0.0, end_point=end_point, 
+                        start_angle=start_angle, end_angle=end_angle, left_turn=True,
+                        total_length=trajectory_length, straight_length=trajectory_length
+                    )
+                    return Trajectory(trajectory_path, trajectory_parameters)
+                except:
+                    return None
 
             else:
                 logger.debug(
@@ -476,15 +505,16 @@ class TrajectoryGenerator:
 
         left_turn = self._is_left_turn(intersection_point, end_point)
 
-        trajectory_path, trajectory_length = self._create_path(x2, y2, end_angle, start_angle)
-        trajectory_parameters = TrajectoryParameters(
-        turning_radius=self.turning_radius, end_point=end_point, 
-        start_angle=start_angle, end_angle=end_angle, left_turn=left_turn,
-        total_length=trajectory_length, straight_length=trajectory_length
-        )
-        
-
-        return Trajectory(trajectory_path, trajectory_parameters)
+        try:
+            trajectory_path, trajectory_length = self._create_path(x2, y2, end_angle, start_angle)
+            trajectory_parameters = TrajectoryParameters(
+            turning_radius=self.turning_radius, end_point=end_point, 
+            start_angle=start_angle, end_angle=end_angle, left_turn=left_turn,
+            total_length=trajectory_length, straight_length=trajectory_length
+            )
+            return Trajectory(trajectory_path, trajectory_parameters)
+        except:
+            return None
 
 
     def generate_trajectory(
