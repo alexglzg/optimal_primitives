@@ -1,0 +1,14 @@
+{
+    "motion_model": "ackermann",
+    "turning_radius": 4.33,
+    "grid_resolution": 0.05,
+    "stopping_threshold": 5,
+    "num_of_headings": 8,
+    "max_vel": 1.0,
+    "min_vel": -1.0,
+    "max_ang_vel": 1.0,
+    "max_lin_acc": 0.1,
+    "max_ang_acc": 0.1,
+    "wheelbase": 2.5,
+    "max_steer_ang": 0.52
+}
